@@ -7,6 +7,11 @@ use obs_wrapper::{
     obs_string,
 };
 
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
+use std::ffi::CString;
+
 struct Shader {
     source: SourceContext,
     effect: GraphicsEffect,
@@ -22,8 +27,18 @@ impl Sourceable for Shader {
     }
 
     fn create(_create: &mut CreatableSourceContext<Self>, source: SourceContext) -> Self {
+        let path = Path::new("C:\\projects\\obs-shader-plugin\\src\\test_shader.effect");
+        let mut file = match File::open(&path) {
+            Err(why) => panic!("Cound not load {}: {}", path.display(), why),
+            Ok(file) => file
+        };
+        let mut buf = String::new();
+        file.read_to_string(&mut buf).expect("Cound not read shader file.");
+        let cs = CString::new(buf.as_bytes()).expect("Cound not create c string.");
+        let shader_string = ObsString::Dynamic(cs);
+
         let effect = GraphicsEffect::from_effect_string(
-            obs_string!(include_str!("./test_shader.effect")),
+            shader_string,
             obs_string!("test_shader.effect"),
         )
         .expect("Could not load test shader");
