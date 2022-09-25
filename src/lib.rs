@@ -8,6 +8,7 @@ use obs_wrapper::{
 };
 
 use std::fs::File;
+use std::io;
 use std::io::Read;
 use std::path::Path;
 use std::ffi::CString;
@@ -15,6 +16,26 @@ use std::ffi::CString;
 struct Shader {
     source: SourceContext,
     effect: GraphicsEffect,
+}
+
+impl Shader {
+    fn load_shader_file() -> Result<GraphicsEffect, io::Error> {
+        let path = Path::new("C:\\projects\\obs-shader-plugin\\src\\test_shader.effect");
+        let mut file = File::open(&path)?;
+        let mut buf = String::new();
+        file.read_to_string(&mut buf)?;
+        let cs = CString::new(buf.as_bytes())?;
+        let shader_string = ObsString::Dynamic(cs);
+
+        if let Some(effect) = GraphicsEffect::from_effect_string(
+            shader_string,
+            obs_string!("test_shader.effect"),
+        ) {
+            Ok(effect)
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "Failed to call GraphicsEffect::from_effect_string()"))
+        }
+    }
 }
 
 impl Sourceable for Shader {
@@ -27,21 +48,9 @@ impl Sourceable for Shader {
     }
 
     fn create(_create: &mut CreatableSourceContext<Self>, source: SourceContext) -> Self {
-        let path = Path::new("C:\\projects\\obs-shader-plugin\\src\\test_shader.effect");
-        let mut file = match File::open(&path) {
-            Err(why) => panic!("Cound not load {}: {}", path.display(), why),
-            Ok(file) => file
-        };
-        let mut buf = String::new();
-        file.read_to_string(&mut buf).expect("Cound not read shader file.");
-        let cs = CString::new(buf.as_bytes()).expect("Cound not create c string.");
-        let shader_string = ObsString::Dynamic(cs);
-
-        let effect = GraphicsEffect::from_effect_string(
-            shader_string,
-            obs_string!("test_shader.effect"),
-        )
-        .expect("Could not load test shader");
+        let effect = Shader::load_shader_file().unwrap_or_else(|err| {
+            panic!("Could not load shader file: {}", err)
+        });
         Self {
             source,
             effect,
